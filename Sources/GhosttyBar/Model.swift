@@ -266,7 +266,24 @@ final class AppSettings {
     /// A separate suite, wiped on creation (demo mode, tests).
     init(freshSuite suite: String) {
         d = UserDefaults(suiteName: suite) ?? .standard
+        self.suite = suite
         d.removePersistentDomain(forName: suite)
+    }
+
+    private var suite: String?
+
+    /// Deletes a fresh suite (demo mode on quit). Never touches the normal settings.
+    func removeAll() {
+        guard let suite else { return }
+        for key in d.persistentDomain(forName: suite)?.keys ?? [:].keys { d.removeObject(forKey: key) }
+        d.removePersistentDomain(forName: suite)
+        CFPreferencesAppSynchronize(suite as CFString)
+    }
+
+    /// Demo mode only: the Launch at Login checkbox is shown but never registers anything.
+    var demoLaunchAtLogin: Bool {
+        get { d.bool(forKey: "demoLaunchAtLogin") }
+        set { d.set(newValue, forKey: "demoLaunchAtLogin") }
     }
 
     var visible: Bool {

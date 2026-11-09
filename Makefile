@@ -25,7 +25,7 @@ install: build
 zip: build
 	mkdir -p dist
 	rm -f dist/GhosttyBar-$(VERSION).zip
-	ditto -c -k --keepParent $(APP) dist/GhosttyBar-$(VERSION).zip
+	ditto -c -k --norsrc --noextattr --keepParent $(APP) dist/GhosttyBar-$(VERSION).zip
 	@echo "dist/GhosttyBar-$(VERSION).zip"
 
 clean:

@@ -56,11 +56,26 @@ final class Notifier: NSObject, UNUserNotificationCenterDelegate {
     override init() {
         super.init()
         center.delegate = self
+        refresh { _ in }
+    }
+
+    /// Re-reads the permission; `done(true)` when `blocked` changed.
+    func refresh(_ done: @escaping @MainActor @Sendable (Bool) -> Void) {
         center.getNotificationSettings { s in
             let denied = s.authorizationStatus == .denied
             DispatchQueue.main.async {
-                MainActor.assumeIsolated { self.blocked = denied }
+                MainActor.assumeIsolated {
+                    let changed = self.blocked != denied
+                    self.blocked = denied
+                    done(changed)
+                }
             }
+        }
+    }
+
+    static func openSystemSettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension") {
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -132,7 +147,7 @@ enum LoginItem {
 /// Started from a terminal: log to stderr. Otherwise (Finder, login item, launchd) append to
 /// ~/Library/Logs/GhosttyBar.log, which starts over once it passes 1 MB.
 func setUpLogging() {
-    guard isatty(STDERR_FILENO) == 0 else { return }
+    guard isatty(STDERR_FILENO) == 0, !isDemo else { return }  // demo runs log to stderr only
     let fm = FileManager.default
     let dir = fm.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs")
     try? fm.createDirectory(at: dir, withIntermediateDirectories: true)

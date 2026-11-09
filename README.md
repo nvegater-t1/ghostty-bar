@@ -107,7 +107,8 @@ If you are looking at a tab when it finishes, it does not become unread.
 
 ⌃⌥J jumps to the next unread tab, oldest first. It works from any app and needs no Accessibility
 permission. If it clashes with another app, turn off **Global hotkey ⌃⌥J** in the menu. If another app
-already owns the combination, the item reads "(unavailable)".
+already owns the combination, the item reads "(unavailable)"; click it to try again once the other app
+lets go.
 
 ### Settings
 
@@ -121,7 +122,7 @@ behavior settings plus **Hide window**.
 | Always on top | Keeps the window above other windows and on all Spaces. On by default. |
 | Transparency | Opacity of the window background: 100 % is solid, 15 % is almost clear. Default 85 %. |
 | Blur | Blur of what shows through the window, from off to 100 %. Until you set it, it follows Transparency. |
-| Notify when done | A silent macOS notification when a tab becomes unread. Click it to jump to the tab. Off by default. |
+| Notify when done | A silent macOS notification when a tab becomes unread. Click it to jump to the tab. Off by default. If notifications are turned off for GhosttyBar in System Settings, the item says so and opens that page. |
 | Global hotkey ⌃⌥J | See above. On by default. |
 | Launch at Login | Starts GhosttyBar when you log in. |
 
@@ -135,6 +136,7 @@ Settings are stored in the `com.github.tony-schumacher.GhosttyBar` defaults doma
 
 ```sh
 defaults delete com.github.tony-schumacher.GhosttyBar
+defaults delete com.github.tony-schumacher.GhosttyBar.demo 2>/dev/null  # only if a demo was killed hard
 ```
 
 To toggle the window from a script or a keyboard tool, send the `USR1` signal:
@@ -152,8 +154,10 @@ build/GhosttyBar.app/Contents/MacOS/GhosttyBar --demo
 ```
 
 Demo mode shows eight sample tabs in two windows and never talks to Ghostty. It uses separate settings
-that reset on every launch, registers no hotkey and posts no notifications, so it can run next to your
-normal GhosttyBar. All screenshots on this page are from demo mode.
+that are removed when the demo quits (Quit, Ctrl-C or `kill`), logs only to the terminal, registers no
+hotkey, posts no notifications and never adds itself as a login item (those menu items are shown but do
+nothing), so it can run next to your normal GhosttyBar. All screenshots on this page are from demo mode;
+`kill -USR2` opens the demo's dropdown so it can be captured from a script.
 
 ## How it works
 

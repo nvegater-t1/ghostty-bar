@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     var timer: Timer?
     var lastPoll = Date.distantPast
     var sigSource: DispatchSourceSignal?
+    var quitSources: [DispatchSourceSignal] = []
     var menuOpen = false
     var menuDirty = false
 
@@ -94,6 +95,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         src.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.window.toggle() } }
         src.resume()
         sigSource = src
+        if isDemo {
+            // Ctrl-C / kill quits cleanly, so the demo settings get removed.
+            for sig in [SIGINT, SIGTERM] {
+                quitSources.append(onSignalEvenInMenu(sig) { [weak self] in
+                    self?.settings.removeAll()
+                    NSApp.terminate(nil)
+                })
+            }
+            // `kill -USR2`: opens the dropdown, so screenshots of it can be scripted.
+            signal(SIGUSR2, SIG_IGN)
+            let m = DispatchSource.makeSignalSource(signal: SIGUSR2, queue: .main)
+            m.setEventHandler { [weak self] in MainActor.assumeIsolated { self?.statusItem.button?.performClick(nil) } }
+            m.resume()
+            quitSources.append(m)
+        }
 
         poll()
         rebuildMenu()
@@ -112,6 +128,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         ) { [weak self] _ in MainActor.assumeIsolated { if self?.source.isFrontmost == true { self?.poll() } } }
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "dev"
         log("GhosttyBar \(version) started\(isDemo ? " in demo mode" : ""), pid \(getpid()), \(model.unreadCount) unread")
+    }
+
+    func applicationWillTerminate(_ n: Notification) {
+        if isDemo { settings.removeAll() }  // leave no demo settings behind
     }
 
     // MARK: polling
@@ -151,6 +171,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         if menuDirty { rebuildMenu() }  // e.g. slider moved in the right-click menu
     }
     func menuWillOpen(_ menu: NSMenu) {
+        // The permission can change in System Settings while we run; the result shows on the next open.
+        notifier?.refresh { [weak self] changed in if changed { self?.rebuildMenu() } }
         rebuildMenu()                  // fresh relative times
         menuOpen = true
     }
@@ -201,7 +223,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             self.window.setVisible(!self.window.isShown)
         })
         addSettingsItems(to: menu)
-        if !isDemo { menu.addItem(loginItem()) }
+        menu.addItem(loginItem())
         menu.addItem(.separator())
         menu.addItem(ClosureItem("Quit") { NSApp.terminate(nil) })
     }
@@ -293,6 +315,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     /// Checked = registered as login item. "Requires approval" = the user must allow it in System Settings.
     private func loginItem() -> NSMenuItem {
+        if isDemo {  // shown like a real instance, but never registers the demo binary as a login item
+            return ClosureItem("Launch at Login", checked: settings.demoLaunchAtLogin) { [weak self] in
+                guard let self else { return }
+                self.settings.demoLaunchAtLogin.toggle()
+                self.rebuildMenu()
+            }
+        }
         let status = LoginItem.status
         let pending = status == .requiresApproval
         return ClosureItem(pending ? "Launch at Login (allow in System Settings)" : "Launch at Login",
@@ -341,6 +370,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func toggleNotify() {
+        if let notifier, notifier.blocked {
+            // Denied in System Settings: asking again returns false at once, so send the user there.
+            Notifier.openSystemSettings()
+            return
+        }
         guard let notifier, !settings.notify else {
             settings.notify.toggle()   // switching off, or demo mode (setting only, never posts)
             rebuildMenu()
@@ -355,7 +389,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func toggleHotKey() {
-        settings.hotKey.toggle()
+        // On but not registered (another app owns ⌃⌥J): a click retries instead of switching off.
+        let failed = settings.hotKey && hotKey == nil && !isDemo
+        if !failed { settings.hotKey.toggle() }
         applyHotKey()
         rebuildMenu()
     }
@@ -371,6 +407,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             hotKey = nil
         }
     }
+}
+
+/// Runs `action` on the main thread when `sig` arrives, also while a menu is open (the main queue is not
+/// serviced during menu tracking, a common-modes run loop block is).
+nonisolated func onSignalEvenInMenu(_ sig: Int32, _ action: @escaping @MainActor @Sendable () -> Void) -> DispatchSourceSignal {
+    signal(sig, SIG_IGN)
+    let src = DispatchSource.makeSignalSource(signal: sig, queue: .global())
+    src.setEventHandler { @Sendable in
+        CFRunLoopPerformBlock(CFRunLoopGetMain(), CFRunLoopMode.commonModes.rawValue) {
+            MainActor.assumeIsolated { action() }
+        }
+        CFRunLoopWakeUp(CFRunLoopGetMain())
+    }
+    src.resume()
+    return src
 }
 
 setUpLogging()
