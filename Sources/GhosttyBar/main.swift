@@ -389,10 +389,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     }
 
     func toggleHotKey() {
-        // On but not registered (another app owns ⌃⌥J): a click retries instead of switching off.
+        // On but not registered (another app owns ⌃⌥J): a click retries once. If ⌃⌥J is still taken,
+        // the setting switches off, so a permanent clash never leaves it stuck on.
         let failed = settings.hotKey && hotKey == nil && !isDemo
         if !failed { settings.hotKey.toggle() }
         applyHotKey()
+        if failed && hotKey == nil {
+            settings.hotKey = false
+            log("Global hotkey still taken, turned it off")
+        }
         rebuildMenu()
     }
 

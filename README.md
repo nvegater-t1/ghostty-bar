@@ -107,8 +107,8 @@ If you are looking at a tab when it finishes, it does not become unread.
 
 ⌃⌥J jumps to the next unread tab, oldest first. It works from any app and needs no Accessibility
 permission. If it clashes with another app, turn off **Global hotkey ⌃⌥J** in the menu. If another app
-already owns the combination, the item reads "(unavailable)"; click it to try again once the other app
-lets go.
+already owns the combination, the item reads "(unavailable)". Click it to try again: if ⌃⌥J is still
+taken, the setting turns off. Turn it back on once the other app lets go.
 
 ### Settings
 
@@ -210,6 +210,9 @@ It only acts when at least one tab is unread.
 Small pull requests are welcome: bug fixes, support for more title glyphs, better defaults. Please keep it
 small and dependency-free. `make build` must stay free of warnings; CI builds with `STRICT=1 ./build.sh`,
 which treats warnings as errors. For larger changes, open an issue first.
+
+Releases: bump `VERSION` and `CHANGELOG.md`, then push a tag `v<version>`. The release workflow builds
+the zip and attaches it to a GitHub release.
 
 ## License
 
