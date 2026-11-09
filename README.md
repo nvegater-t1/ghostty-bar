@@ -1,5 +1,7 @@
 # GhosttyBar
 
+(Disclaimer: fully vibe coded)
+
 A vertical tab list for [Ghostty](https://ghostty.org) in your macOS menu bar, showing which
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) sessions are working, finished, or waiting for you.
 
