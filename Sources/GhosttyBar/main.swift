@@ -168,7 +168,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.addItem(disabledItem(model.summary))
 
         if !model.tabs.isEmpty {
-            let next = ClosureItem("Next unread tab", key: hotKey != nil ? "j" : "") { [weak self] in self?.nextUnread() }
+            // Demo mode never registers the hotkey but shows the menu as a real instance would.
+            let hotKeyActive = hotKey != nil || (isDemo && settings.hotKey)
+            let next = ClosureItem("Next unread tab", key: hotKeyActive ? "j" : "") { [weak self] in self?.nextUnread() }
             next.keyEquivalentModifierMask = [.control, .option]  // shows ⌃⌥J (global hotkey)
             next.isEnabled = model.unreadCount > 0
             menu.addItem(next)
